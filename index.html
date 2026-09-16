@@ -193,7 +193,7 @@
   .ultra-btn:hover{filter:brightness(1.15);}
 
   /* ===== SMOKE SETTINGS PANEL ===== */
-  #smokePanel, #parallaxPanel{
+  #smokePanel, #parallaxPanel, #posPanel{
     position:absolute;
     top:70px;
     left:0;
@@ -215,8 +215,8 @@
   }
   /* horizontal/vertical anchor is now computed in JS (positionSmokePanel/positionParallaxPanel) so it always
      stacks BELOW the main panel instead of beside it - keeps it on-screen on narrow phones */
-  #smokePanel.flip-left, #parallaxPanel.flip-left{ left:auto; right:0; }
-  #smokePanel.open, #parallaxPanel.open{
+  #smokePanel.flip-left, #parallaxPanel.flip-left, #posPanel.flip-left{ left:auto; right:0; }
+  #smokePanel.open, #parallaxPanel.open, #posPanel.open{
     opacity:1;
     transform:translateY(0) scale(1);
     pointer-events:auto;
@@ -238,6 +238,9 @@
     font-size:12px;
     padding:4px 6px;
   }
+  #posPanel .parallax-row{ margin-bottom:14px; }
+  #posPanel .parallax-row input[type="number"]{ width:52px; }
+  #posPanel .smoke-hint{ font-size:10px; }
   .smoke-label{
     display:block;
     color:var(--cyan);
@@ -347,6 +350,7 @@
     <div class="ctrl-btn" data-fx="wave">Neon Wave <div class="state-dot"></div></div>
     <div class="ctrl-btn" data-fx="smoke">Color Smoke <div class="state-dot"></div></div>
     <div class="ctrl-btn" id="smokeSettingsBtn">Smoke Settings &#9881;</div>
+    <div class="ctrl-btn" id="charPosBtn">Character Position &#9881;</div>
     <div class="ctrl-btn ultra-btn" id="ultraBtn">ULTRA MIX ALL</div>
   </div>
 
@@ -431,6 +435,31 @@
     <div class="parallax-row">
       <label class="smoke-label" style="margin:0;">Layer 7 (char 3, foreground)</label>
       <input type="number" id="parallaxSpeed7" step="0.005" min="0" max="1">
+    </div>
+  </div>
+
+  <div id="posPanel">
+    <div class="ctrl-title">// CHARACTER POSITION</div>
+    <label class="smoke-label">Char 1 (layer 5)</label>
+    <div class="parallax-row">
+      <span class="smoke-hint">X %</span>
+      <input type="number" id="posX5" step="1" min="-20" max="120">
+      <span class="smoke-hint">Y %</span>
+      <input type="number" id="posY5" step="1" min="-20" max="120">
+    </div>
+    <label class="smoke-label">Char 2 (layer 6)</label>
+    <div class="parallax-row">
+      <span class="smoke-hint">X %</span>
+      <input type="number" id="posX6" step="1" min="-20" max="120">
+      <span class="smoke-hint">Y %</span>
+      <input type="number" id="posY6" step="1" min="-20" max="120">
+    </div>
+    <label class="smoke-label">Char 3 (layer 7)</label>
+    <div class="parallax-row">
+      <span class="smoke-hint">X %</span>
+      <input type="number" id="posX7" step="1" min="-20" max="120">
+      <span class="smoke-hint">Y %</span>
+      <input type="number" id="posY7" step="1" min="-20" max="120">
     </div>
   </div>
 </div>
@@ -849,6 +878,7 @@ const fabMain = document.getElementById('fabMain');
 const controlPanel = document.getElementById('controlPanel');
 const smokePanel = document.getElementById('smokePanel');
 const parallaxPanel = document.getElementById('parallaxPanel');
+const posPanel = document.getElementById('posPanel');
 
 let isDragging = false;
 let dragMoved = false;
@@ -859,12 +889,13 @@ function updatePanelOrientation(){
   const rect = fabContainer.getBoundingClientRect();
   const flipUp = rect.top > window.innerHeight * 0.55;
   const flipLeft = rect.left > window.innerWidth * 0.55;
-  [controlPanel, smokePanel, parallaxPanel].forEach(p=>{
+  [controlPanel, smokePanel, parallaxPanel, posPanel].forEach(p=>{
     p.classList.toggle('flip-up', flipUp);
     p.classList.toggle('flip-left', flipLeft);
   });
   positionSmokePanel();
   positionParallaxPanel();
+  positionPosPanel();
 }
 
 /* parallax panel stacks the same way the smoke panel does */
@@ -907,6 +938,53 @@ function positionParallaxPanel(){
 document.getElementById('parallaxSettingsBtn').addEventListener('click', ()=>{
   positionParallaxPanel();
   parallaxPanel.classList.toggle('open');
+});
+
+/* parallax panel stacks the same way the smoke panel does */
+function positionPosPanel(){
+  const gap = 12, margin = 8;
+  posPanel.style.width = controlPanel.offsetWidth + 'px';
+  const flipUp = controlPanel.classList.contains('flip-up');
+  const fabRect = fabContainer.getBoundingClientRect();
+  if(flipUp){
+    posPanel.style.top = 'auto';
+    posPanel.style.bottom = (70 + controlPanel.offsetHeight + gap) + 'px';
+  } else {
+    posPanel.style.bottom = 'auto';
+    posPanel.style.top = (70 + controlPanel.offsetHeight + gap) + 'px';
+  }
+  posPanel.style.maxHeight = '60vh';
+  const panelHeight = posPanel.offsetHeight;
+  if(flipUp){
+    const viewportTop = (fabRect.top - (70 + controlPanel.offsetHeight + gap)) - panelHeight;
+    if(viewportTop < margin){
+      posPanel.style.maxHeight = Math.max(120, panelHeight - (margin - viewportTop)) + 'px';
+    }
+  } else {
+    const viewportBottom = fabRect.top + (70 + controlPanel.offsetHeight + gap) + panelHeight;
+    if(viewportBottom > window.innerHeight - margin){
+      posPanel.style.maxHeight = Math.max(120, panelHeight - (viewportBottom - (window.innerHeight - margin))) + 'px';
+    }
+  }
+}
+
+/* ---- Character Position panel wiring ---- */
+const charPositions = { 5:[18,94], 6:[54,97], 7:[84,100] }; // starting x%,y% for each character layer
+[5,6,7].forEach(n=>{
+  const xInput = document.getElementById('posX'+n);
+  const yInput = document.getElementById('posY'+n);
+  const layerEl = document.getElementById('layer'+n);
+  xInput.value = charPositions[n][0];
+  yInput.value = charPositions[n][1];
+  function applyPos(){
+    layerEl.style.backgroundPosition = xInput.value + '% ' + yInput.value + '%';
+  }
+  xInput.addEventListener('input', applyPos);
+  yInput.addEventListener('input', applyPos);
+});
+document.getElementById('charPosBtn').addEventListener('click', ()=>{
+  positionPosPanel();
+  posPanel.classList.toggle('open');
 });
 
 /* smoke panel always stacks directly below (or above) the main panel, matching its

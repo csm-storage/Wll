@@ -54,7 +54,7 @@
   #layer5{ background-image:url('char1.png'); background-size:46% auto; background-position:0% 82%; background-repeat:no-repeat; z-index:5; } /* your character 1 */
   #layer6{ background-image:url('char2.png'); background-size:52% auto; background-position:120% 75%; background-repeat:no-repeat; z-index:6; } /* your character 2 */
   #layer7{ background-image:url('char3.png'); background-size:72% auto; background-position:55% 99%; background-repeat:no-repeat; z-index:7; pointer-events:auto; } /* your character 3 - MAIN foreground */
-  #layer8{ background-image:url('char4.png'); background-size:40% auto; background-position:54% 20%; background-repeat:no-repeat; z-index:4; } /* your character 4 - sits BEHIND char 1/2/3, in front of buildings/fog */
+  #layer8{ background-image:url('char4.png'); background-size:60% auto; background-position:70% 95%; background-repeat:no-repeat; z-index:4; } /* your character 4 - sits BEHIND char 1/2/3, in front of buildings/fog */
 
   #layer7.glow-on{
     filter:drop-shadow(0 0 25px var(--cyan)) drop-shadow(0 0 45px var(--pink));
@@ -447,6 +447,8 @@
 
   <div id="posPanel">
     <div class="ctrl-title">// CHARACTER POSITION</div>
+    <div class="ctrl-btn" id="dragPosBtn" style="margin-bottom:10px;">Drag Position: OFF</div>
+    <div class="ctrl-btn ultra-btn" id="savePosBtn" style="margin-bottom:14px;">Save Position</div>
     <label class="smoke-label">Char 1 (layer 5)</label>
     <div class="parallax-row">
       <span class="smoke-hint">X %</span>
@@ -983,23 +985,98 @@ function positionPosPanel(){
   }
 }
 
-/* ---- Character Position panel wiring ---- */
-const charPositions = { 5:[0,82], 6:[120,75], 7:[55,99], 8:[70,95] }; // starting x%,y% for each character layer
-[5,6,7,8].forEach(n=>{
+/* ---- Character Position panel wiring (manual X/Y + drag-to-position + save) ---- */
+const defaultCharPositions = { 5:[0,82], 6:[120,75], 7:[55,99], 8:[70,95] }; // starting x%,y% for each character layer
+let charPositions = { ...defaultCharPositions };
+try{
+  const saved = JSON.parse(localStorage.getItem('wallpaperCharPositions') || 'null');
+  if(saved) charPositions = { ...defaultCharPositions, ...saved };
+}catch(e){}
+
+const charLayerNums = [5,6,7,8];
+function syncPosInputs(n){
+  document.getElementById('posX'+n).value = charPositions[n][0];
+  document.getElementById('posY'+n).value = charPositions[n][1];
+}
+function applyCharPos(n){
+  document.getElementById('layer'+n).style.backgroundPosition = charPositions[n][0] + '% ' + charPositions[n][1] + '%';
+}
+charLayerNums.forEach(n=>{
+  syncPosInputs(n);
+  applyCharPos(n);
   const xInput = document.getElementById('posX'+n);
   const yInput = document.getElementById('posY'+n);
-  const layerEl = document.getElementById('layer'+n);
-  xInput.value = charPositions[n][0];
-  yInput.value = charPositions[n][1];
-  function applyPos(){
-    layerEl.style.backgroundPosition = xInput.value + '% ' + yInput.value + '%';
-  }
-  xInput.addEventListener('input', applyPos);
-  yInput.addEventListener('input', applyPos);
+  xInput.addEventListener('input', ()=>{
+    charPositions[n][0] = parseFloat(xInput.value) || 0;
+    applyCharPos(n);
+  });
+  yInput.addEventListener('input', ()=>{
+    charPositions[n][1] = parseFloat(yInput.value) || 0;
+    applyCharPos(n);
+  });
 });
 document.getElementById('charPosBtn').addEventListener('click', ()=>{
   positionPosPanel();
   posPanel.classList.toggle('open');
+});
+
+/* Drag-to-position mode: click "Drag Position" then drag any character on screen with a finger/mouse */
+let dragMode = false;
+let draggingLayer = null;
+let dragStartPX = 0, dragStartPY = 0, dragStartX = 0, dragStartY = 0;
+const dragPosBtn = document.getElementById('dragPosBtn');
+
+function setDragMode(on){
+  dragMode = on;
+  dragPosBtn.textContent = 'Drag Position: ' + (on ? 'ON' : 'OFF');
+  dragPosBtn.style.background = on ? 'rgba(255,0,127,0.25)' : '';
+  charLayerNums.forEach(n=>{
+    const el = document.getElementById('layer'+n);
+    el.style.pointerEvents = on ? 'auto' : '';
+    el.style.outline = on ? '2px dashed rgba(0,240,255,0.6)' : '';
+    el.style.outlineOffset = on ? '-4px' : '';
+    el.style.cursor = on ? 'grab' : '';
+  });
+}
+dragPosBtn.addEventListener('click', ()=> setDragMode(!dragMode));
+
+charLayerNums.forEach(n=>{
+  const el = document.getElementById('layer'+n);
+  el.addEventListener('pointerdown', e=>{
+    if(!dragMode) return;
+    draggingLayer = n;
+    dragStartPX = e.clientX;
+    dragStartPY = e.clientY;
+    dragStartX = charPositions[n][0];
+    dragStartY = charPositions[n][1];
+    el.style.cursor = 'grabbing';
+    el.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  el.addEventListener('pointermove', e=>{
+    if(!dragMode || draggingLayer !== n) return;
+    const dxPct = ((e.clientX - dragStartPX) / window.innerWidth) * 100 * 2.2;
+    const dyPct = ((e.clientY - dragStartPY) / window.innerHeight) * 100 * 2.2;
+    charPositions[n][0] = Math.round(dragStartX + dxPct);
+    charPositions[n][1] = Math.round(dragStartY + dyPct);
+    applyCharPos(n);
+    syncPosInputs(n);
+  });
+  ['pointerup','pointercancel'].forEach(evt=> el.addEventListener(evt, e=>{
+    if(draggingLayer === n){
+      draggingLayer = null;
+      el.style.cursor = dragMode ? 'grab' : '';
+    }
+  }));
+});
+
+document.getElementById('savePosBtn').addEventListener('click', ()=>{
+  localStorage.setItem('wallpaperCharPositions', JSON.stringify(charPositions));
+  setDragMode(false);
+  const btn = document.getElementById('savePosBtn');
+  const oldText = btn.textContent;
+  btn.textContent = 'Saved!';
+  setTimeout(()=>{ btn.textContent = oldText; }, 1200);
 });
 
 /* smoke panel always stacks directly below (or above) the main panel, matching its

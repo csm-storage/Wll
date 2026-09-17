@@ -194,7 +194,7 @@
   .ultra-btn:hover{filter:brightness(1.15);}
 
   /* ===== SMOKE SETTINGS PANEL ===== */
-  #smokePanel, #parallaxPanel, #posPanel{
+  #smokePanel, #parallaxPanel, #posPanel, #layersPanel, #glowPanel{
     position:absolute;
     top:70px;
     left:0;
@@ -216,8 +216,8 @@
   }
   /* horizontal/vertical anchor is now computed in JS (positionSmokePanel/positionParallaxPanel) so it always
      stacks BELOW the main panel instead of beside it - keeps it on-screen on narrow phones */
-  #smokePanel.flip-left, #parallaxPanel.flip-left, #posPanel.flip-left{ left:auto; right:0; }
-  #smokePanel.open, #parallaxPanel.open, #posPanel.open{
+  #smokePanel.flip-left, #parallaxPanel.flip-left, #posPanel.flip-left, #layersPanel.flip-left, #glowPanel.flip-left{ left:auto; right:0; }
+  #smokePanel.open, #parallaxPanel.open, #posPanel.open, #layersPanel.open, #glowPanel.open{
     opacity:1;
     transform:translateY(0) scale(1);
     pointer-events:auto;
@@ -242,6 +242,59 @@
   #posPanel .parallax-row{ margin-bottom:14px; }
   #posPanel .parallax-row input[type="number"]{ width:52px; }
   #posPanel .smoke-hint{ font-size:10px; }
+  .layer-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:8px 10px;
+    margin-bottom:8px;
+    border-radius:10px;
+    border:1px solid rgba(0,240,255,0.25);
+    background:rgba(0,240,255,0.04);
+    font-size:12px;
+    cursor:pointer;
+    transition:all .2s ease;
+  }
+  .layer-row.active{
+    border-color:var(--pink);
+    background:rgba(255,0,127,0.18);
+    box-shadow:0 0 12px rgba(255,0,127,0.35);
+  }
+  .layer-row .tag{
+    font-size:10px;
+    opacity:0.6;
+  }
+  .glow-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:8px 10px;
+    margin-bottom:10px;
+    border-radius:10px;
+    border:1px solid rgba(0,240,255,0.25);
+    background:rgba(0,240,255,0.04);
+  }
+  .glow-row .glow-name{ font-size:12px; }
+  .glow-row input[type="color"]{
+    width:30px;
+    height:26px;
+    border:none;
+    border-radius:6px;
+    background:none;
+    padding:0;
+    cursor:pointer;
+  }
+  .glow-row .state-dot{
+    width:10px; height:10px; border-radius:50%;
+    background:rgba(255,255,255,0.2);
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .glow-row .state-dot.on{
+    background:var(--cyan);
+    box-shadow:0 0 8px var(--cyan);
+  }
   .smoke-label{
     display:block;
     color:var(--cyan);
@@ -353,6 +406,8 @@
     <div class="ctrl-btn" data-fx="smoke">Color Smoke <div class="state-dot"></div></div>
     <div class="ctrl-btn" id="smokeSettingsBtn">Smoke Settings &#9881;</div>
     <div class="ctrl-btn" id="charPosBtn">Character Position &#9881;</div>
+    <div class="ctrl-btn" id="layersPanelBtn">Character Layers &#9776;</div>
+    <div class="ctrl-btn" id="glowPanelBtn">Character Glow &#9881;</div>
     <div class="ctrl-btn ultra-btn" id="ultraBtn">ULTRA MIX ALL</div>
   </div>
 
@@ -476,6 +531,38 @@
       <input type="number" id="posX8" step="1" min="-20" max="120">
       <span class="smoke-hint">Y %</span>
       <input type="number" id="posY8" step="1" min="-20" max="120">
+    </div>
+  </div>
+
+  <div id="layersPanel">
+    <div class="ctrl-title">// CHARACTER LAYERS</div>
+    <div class="layer-row" data-layer="5">Char 1 <span class="tag">layer 5</span></div>
+    <div class="layer-row" data-layer="6">Char 2 <span class="tag">layer 6</span></div>
+    <div class="layer-row active" data-layer="7">Char 3 <span class="tag">layer 7 · main</span></div>
+    <div class="layer-row" data-layer="8">Char 4 <span class="tag">layer 8</span></div>
+  </div>
+
+  <div id="glowPanel">
+    <div class="ctrl-title">// CHARACTER GLOW</div>
+    <div class="glow-row">
+      <div class="state-dot" data-glow="5"></div>
+      <span class="glow-name">Char 1</span>
+      <input type="color" id="glowColor5" value="#00f0ff">
+    </div>
+    <div class="glow-row">
+      <div class="state-dot" data-glow="6"></div>
+      <span class="glow-name">Char 2</span>
+      <input type="color" id="glowColor6" value="#ff007f">
+    </div>
+    <div class="glow-row">
+      <div class="state-dot" data-glow="7"></div>
+      <span class="glow-name">Char 3</span>
+      <input type="color" id="glowColor7" value="#ffd28a">
+    </div>
+    <div class="glow-row">
+      <div class="state-dot" data-glow="8"></div>
+      <span class="glow-name">Char 4</span>
+      <input type="color" id="glowColor8" value="#ff6fb0">
     </div>
   </div>
 </div>
@@ -896,6 +983,8 @@ const controlPanel = document.getElementById('controlPanel');
 const smokePanel = document.getElementById('smokePanel');
 const parallaxPanel = document.getElementById('parallaxPanel');
 const posPanel = document.getElementById('posPanel');
+const layersPanel = document.getElementById('layersPanel');
+const glowPanel = document.getElementById('glowPanel');
 
 let isDragging = false;
 let dragMoved = false;
@@ -906,13 +995,15 @@ function updatePanelOrientation(){
   const rect = fabContainer.getBoundingClientRect();
   const flipUp = rect.top > window.innerHeight * 0.55;
   const flipLeft = rect.left > window.innerWidth * 0.55;
-  [controlPanel, smokePanel, parallaxPanel, posPanel].forEach(p=>{
+  [controlPanel, smokePanel, parallaxPanel, posPanel, layersPanel, glowPanel].forEach(p=>{
     p.classList.toggle('flip-up', flipUp);
     p.classList.toggle('flip-left', flipLeft);
   });
   positionSmokePanel();
   positionParallaxPanel();
   positionPosPanel();
+  positionLayersPanel();
+  positionGlowPanel();
 }
 
 /* parallax panel stacks the same way the smoke panel does */
@@ -985,6 +1076,69 @@ function positionPosPanel(){
   }
 }
 
+function positionLayersPanel(){
+  const gap = 12, margin = 8;
+  layersPanel.style.width = controlPanel.offsetWidth + 'px';
+  const flipUp = controlPanel.classList.contains('flip-up');
+  const fabRect = fabContainer.getBoundingClientRect();
+  if(flipUp){
+    layersPanel.style.top = 'auto';
+    layersPanel.style.bottom = (70 + controlPanel.offsetHeight + gap) + 'px';
+  } else {
+    layersPanel.style.bottom = 'auto';
+    layersPanel.style.top = (70 + controlPanel.offsetHeight + gap) + 'px';
+  }
+  layersPanel.style.maxHeight = '60vh';
+  const panelHeight = layersPanel.offsetHeight;
+  if(flipUp){
+    const viewportTop = (fabRect.top - (70 + controlPanel.offsetHeight + gap)) - panelHeight;
+    if(viewportTop < margin){
+      layersPanel.style.maxHeight = Math.max(120, panelHeight - (margin - viewportTop)) + 'px';
+    }
+  } else {
+    const viewportBottom = fabRect.top + (70 + controlPanel.offsetHeight + gap) + panelHeight;
+    if(viewportBottom > window.innerHeight - margin){
+      layersPanel.style.maxHeight = Math.max(120, panelHeight - (viewportBottom - (window.innerHeight - margin))) + 'px';
+    }
+  }
+}
+
+function positionGlowPanel(){
+  const gap = 12, margin = 8;
+  glowPanel.style.width = controlPanel.offsetWidth + 'px';
+  const flipUp = controlPanel.classList.contains('flip-up');
+  const fabRect = fabContainer.getBoundingClientRect();
+  if(flipUp){
+    glowPanel.style.top = 'auto';
+    glowPanel.style.bottom = (70 + controlPanel.offsetHeight + gap) + 'px';
+  } else {
+    glowPanel.style.bottom = 'auto';
+    glowPanel.style.top = (70 + controlPanel.offsetHeight + gap) + 'px';
+  }
+  glowPanel.style.maxHeight = '60vh';
+  const panelHeight2 = glowPanel.offsetHeight;
+  if(flipUp){
+    const viewportTop = (fabRect.top - (70 + controlPanel.offsetHeight + gap)) - panelHeight2;
+    if(viewportTop < margin){
+      glowPanel.style.maxHeight = Math.max(120, panelHeight2 - (margin - viewportTop)) + 'px';
+    }
+  } else {
+    const viewportBottom = fabRect.top + (70 + controlPanel.offsetHeight + gap) + panelHeight2;
+    if(viewportBottom > window.innerHeight - margin){
+      glowPanel.style.maxHeight = Math.max(120, panelHeight2 - (viewportBottom - (window.innerHeight - margin))) + 'px';
+    }
+  }
+}
+
+document.getElementById('layersPanelBtn').addEventListener('click', ()=>{
+  positionLayersPanel();
+  layersPanel.classList.toggle('open');
+});
+document.getElementById('glowPanelBtn').addEventListener('click', ()=>{
+  positionGlowPanel();
+  glowPanel.classList.toggle('open');
+});
+
 /* ---- Character Position panel wiring (manual X/Y + drag-to-position + save) ---- */
 const defaultCharPositions = { 5:[0,82], 6:[120,75], 7:[55,99], 8:[70,95] }; // starting x%,y% for each character layer
 let charPositions = { ...defaultCharPositions };
@@ -1020,30 +1174,47 @@ document.getElementById('charPosBtn').addEventListener('click', ()=>{
   posPanel.classList.toggle('open');
 });
 
-/* Drag-to-position mode: click "Drag Position" then drag any character on screen with a finger/mouse */
+/* Drag-to-position mode: pick ONE layer from the "Character Layers" panel (like a Photoshop layers
+   list), then drag just that character. Only the selected layer gets pointer-events while dragging,
+   so the layers stacked underneath don't steal the touch/click. */
 let dragMode = false;
 let draggingLayer = null;
+let selectedDragLayer = 7; // matches the "active" row already marked in the HTML
 let dragStartPX = 0, dragStartPY = 0, dragStartX = 0, dragStartY = 0;
 const dragPosBtn = document.getElementById('dragPosBtn');
+
+function refreshDragTarget(){
+  charLayerNums.forEach(n=>{
+    const el = document.getElementById('layer'+n);
+    const isSel = dragMode && n === selectedDragLayer;
+    el.style.pointerEvents = isSel ? 'auto' : '';
+    el.style.outline = isSel ? '2px dashed rgba(0,240,255,0.6)' : '';
+    el.style.outlineOffset = isSel ? '-4px' : '';
+    el.style.cursor = isSel ? 'grab' : '';
+  });
+}
 
 function setDragMode(on){
   dragMode = on;
   dragPosBtn.textContent = 'Drag Position: ' + (on ? 'ON' : 'OFF');
   dragPosBtn.style.background = on ? 'rgba(255,0,127,0.25)' : '';
-  charLayerNums.forEach(n=>{
-    const el = document.getElementById('layer'+n);
-    el.style.pointerEvents = on ? 'auto' : '';
-    el.style.outline = on ? '2px dashed rgba(0,240,255,0.6)' : '';
-    el.style.outlineOffset = on ? '-4px' : '';
-    el.style.cursor = on ? 'grab' : '';
-  });
+  refreshDragTarget();
 }
 dragPosBtn.addEventListener('click', ()=> setDragMode(!dragMode));
+
+/* Character Layers panel - click a row to select which character the drag handle controls */
+document.querySelectorAll('.layer-row').forEach(row=>{
+  row.addEventListener('click', ()=>{
+    selectedDragLayer = parseInt(row.dataset.layer, 10);
+    document.querySelectorAll('.layer-row').forEach(r=> r.classList.toggle('active', r === row));
+    refreshDragTarget();
+  });
+});
 
 charLayerNums.forEach(n=>{
   const el = document.getElementById('layer'+n);
   el.addEventListener('pointerdown', e=>{
-    if(!dragMode) return;
+    if(!dragMode || n !== selectedDragLayer) return;
     draggingLayer = n;
     dragStartPX = e.clientX;
     dragStartPY = e.clientY;
@@ -1065,7 +1236,7 @@ charLayerNums.forEach(n=>{
   ['pointerup','pointercancel'].forEach(evt=> el.addEventListener(evt, e=>{
     if(draggingLayer === n){
       draggingLayer = null;
-      el.style.cursor = dragMode ? 'grab' : '';
+      el.style.cursor = dragMode && n === selectedDragLayer ? 'grab' : '';
     }
   }));
 });
@@ -1077,6 +1248,32 @@ document.getElementById('savePosBtn').addEventListener('click', ()=>{
   const oldText = btn.textContent;
   btn.textContent = 'Saved!';
   setTimeout(()=>{ btn.textContent = oldText; }, 1200);
+});
+
+/* ---- Character Glow panel: per-character aura on/off + custom color ---- */
+const charGlow = {
+  5:{ on:false, color:'#00f0ff' },
+  6:{ on:false, color:'#ff007f' },
+  7:{ on:false, color:'#ffd28a' },
+  8:{ on:false, color:'#ff6fb0' }
+};
+function applyCharGlow(n){
+  const el = document.getElementById('layer'+n);
+  const g = charGlow[n];
+  el.style.filter = g.on ? `drop-shadow(0 0 25px ${g.color}) drop-shadow(0 0 45px ${g.color})` : '';
+}
+charLayerNums.forEach(n=>{
+  const dot = document.querySelector('.state-dot[data-glow="'+n+'"]');
+  const colorInput = document.getElementById('glowColor'+n);
+  dot.addEventListener('click', ()=>{
+    charGlow[n].on = !charGlow[n].on;
+    dot.classList.toggle('on', charGlow[n].on);
+    applyCharGlow(n);
+  });
+  colorInput.addEventListener('input', ()=>{
+    charGlow[n].color = colorInput.value;
+    applyCharGlow(n);
+  });
 });
 
 /* smoke panel always stacks directly below (or above) the main panel, matching its
